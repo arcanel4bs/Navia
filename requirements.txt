@@ -1,4 +1,5 @@
 Flask
+Flask-SQLAlchemy
 google-generativeai
 googlemaps
 python-dotenv
