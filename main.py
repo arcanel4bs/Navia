@@ -322,11 +322,9 @@ def chat():
         app.logger.info('Saved chat history to database')
         
         # Generate audio for the response
+        # Temporary workarround, disable text to speech
         audio_content = None
-        if response_text:
-            tts_response = text_to_speech_internal(response_text)
-            audio_content = tts_response.get('audio_content')
-            app.logger.info('Generated audio content for response')
+        
         
         app.logger.info(f'Returning response with directions_info: {directions_info is not None}')
         return jsonify({
