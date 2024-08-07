@@ -1,0 +1,7 @@
+Flask
+google-generativeai
+googlemaps
+python-dotenv
+urllib3
+google-cloud-speech 
+google-cloud-texttospeech
