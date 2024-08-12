@@ -3,171 +3,100 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Navia - AI Navigation Assistant</title>
+    <title>Navigation Intelligent Assistant</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://maps.googleapis.com/maps/api/js?key={{ google_api_key }}&libraries=places"></script>
-    <style>
-        body, html {
-            height: 100%;
-            margin: 0;
-            overflow: hidden;
-        }
-        #chat-messages {
-            overflow-y: auto;
-            max-height: calc(100vh - 180px); /* Adjust based on your layout */
-        }
-    </style>
 </head>
-<body class="bg-zinc-800 text-white h-full">
-    <div class="flex flex-col h-full">
-        <h1 id="navia" class="text-2xl font-semibold p-4 text-center">Navia</h1>
-
-        <div class="flex flex-grow overflow-hidden">
-            <div id="chat-container" class="bg-zinc-700 w-1/2 p-4 flex flex-col">
-                <div id="chat-messages" class="mb-4 flex-grow overflow-y-auto">
-                    <!-- Chat messages will be appended here -->
+<body class="bg-zinc-800 text-white min-h-screen flex flex-col">
+    <div class="container mx-auto p-4 flex-grow flex flex-col">
+        <h1 class="text-2xl font-semibold mb-4 text-center">Navia</h1>
+        <div class="flex flex-grow">
+            <div id="chat-container" class="bg-zinc-700 rounded-lg shadow-md p-4 mb-4 w-1/2 mr-2 flex flex-col border border-zinc-400">
+                <div id="chat-messages" class="mb-4 flex-grow overflow-y-auto"></div>
+                <div class="flex ">
+                    <input type="text" id="user-input" class="flex-grow border-2 border-zinc-400 rounded-full text-zinc-950 px-4 py-2" placeholder="Let's go..">
+                    <button onclick="sendMessage()" class="bg-zinc-800 text-gray-300 px-4 py-2 m-1 border border-zinc-400 rounded-full">Go</button>
                 </div>
-
-                <div class="flex mt-auto">
-                    <input type="text" id="user-input" class="flex-grow p-2 rounded-l-md bg-zinc-600 text-white" placeholder="Type your message...">
-                    <button id="send-btn" class="bg-blue-500 text-white p-2 rounded-r-md">Send</button>
-                </div>
-
-                
             </div>
-
-            <div id="map" class="w-1/2"></div>
+            <div id="map" class="w-1/2 ml-2 rounded-lg shadow-md border-2 border-zinc-400 fixed"></div>
         </div>
-
-        <a href="#" id="open-waze" class="text-center text-blue-400 hover:text-blue-300 p-2">Open with Waze</a>
+        <button id="go-button" onclick="openWazeNavigation()" class="bg-blue-500 text-white px-4 py-2 rounded hidden mt-4">Open with Waze</button>
     </div>
 
     <script>
+        let wazeUrl = '';
         let map;
-    let directionsService;
-    let directionsRenderer;
+        let directionsService;
+        let directionsRenderer;
 
-    function initMap() {
-        map = new google.maps.Map(document.getElementById('map'), {
-            center: {lat: 51.5074, lng: -0.1278}, // London coordinates
-            zoom: 8
-        });
-        directionsService = new google.maps.DirectionsService();
-        directionsRenderer = new google.maps.DirectionsRenderer();
-        directionsRenderer.setMap(map);
-    }
+        function initMap() {
+            map = new google.maps.Map(document.getElementById('map'), {
+                center: {lat: 37.0902, lng: -95.7129},
+                zoom: 4
+            });
+            directionsService = new google.maps.DirectionsService();
+            directionsRenderer = new google.maps.DirectionsRenderer();
+            directionsRenderer.setMap(map);
+        }
 
-    function renderRoute(origin, destination) {
-        const request = {
-            origin: origin,
-            destination: destination,
-            travelMode: 'DRIVING'
-        };
-        directionsService.route(request, function(result, status) {
-            if (status === 'OK') {
-                directionsRenderer.setDirections(result);
-            } else {
-                console.error('Directions request failed due to ' + status);
-            }
-        });
-    }
+        async function sendMessage() {
+            const userInput = document.getElementById('user-input').value;
+            document.getElementById('user-input').value = '';
 
+            displayMessage('User: ' + userInput, 'user');
 
-        document.addEventListener('DOMContentLoaded', function() {
-            initMap();
+            const response = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ message: userInput }),
+            });
 
-            const chatMessages = document.getElementById('chat-messages');
-            const userInput = document.getElementById('user-input');
-            const sendBtn = document.getElementById('send-btn');
-            const startRecording = document.getElementById('start-recording');
-            const stopRecording = document.getElementById('stop-recording');
-            const openWaze = document.getElementById('open-waze');
+            const data = await response.json();
 
-            let mediaRecorder;
-            let audioChunks = [];
+            displayMessage('Assistant: ' + data.response, 'assistant');
 
-            function sendMessage() {
-            const message = userInput.value.trim();
-            if (message) {
-                appendMessage('You', message);
-                fetch('/chat', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify({message: message}),
-                })
-                .then(response => response.json())
-                .then(data => {
-                    appendMessage('Navia', data.response);
-                    if (data.audio_content) {
-                        playAudio(data.audio_content);
-                    }
-                    if (data.directions_info) {
-                        console.log('Received directions info:', data.directions_info);
-                        renderRoute(data.directions_info.origin, data.directions_info.destination);
-                        openWaze.href = data.directions_info.waze_url;
-                        openWaze.style.display = 'block';
-                    } else {
-                        console.log('No directions info received');
-                    }
-                });
-                userInput.value = '';
+            if (data.directions_info && data.directions_info.waze_url) {
+                wazeUrl = data.directions_info.waze_url;
+                document.getElementById('go-button').classList.remove('hidden');
+                updateMap(data.directions_info);
             }
         }
 
-            function appendMessage(sender, message) {
-                const messageElement = document.createElement('div');
-                messageElement.innerHTML = `<strong>${sender}:</strong> ${message}`;
-                chatMessages.appendChild(messageElement);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
-            }
+        function displayMessage(message, sender) {
+            const chatMessages = document.getElementById('chat-messages');
+            const messageElement = document.createElement('div');
+            messageElement.textContent = message;
+            messageElement.classList.add('mb-2', sender === 'user' ? 'text-right' : 'text-left');
+            chatMessages.appendChild(messageElement);
+            chatMessages.scrollTop = chatMessages.scrollHeight;
+        }
 
-            function playAudio(audioContent) {
-                const audio = new Audio(`data:audio/mp3;base64,${audioContent}`);
-                audio.play();
-            }
-
-            sendBtn.addEventListener('click', sendMessage);
-            userInput.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') {
-                    sendMessage();
+        function updateMap(directionsInfo) {
+            const request = {
+                origin: directionsInfo.origin,
+                destination: directionsInfo.destination,
+                travelMode: 'DRIVING'
+            };
+            directionsService.route(request, function(result, status) {
+                if (status === 'OK') {
+                    directionsRenderer.setDirections(result);
                 }
             });
+        }
 
-            startRecording.addEventListener('click', function() {
-                navigator.mediaDevices.getUserMedia({ audio: true })
-                    .then(stream => {
-                        mediaRecorder = new MediaRecorder(stream);
-                        mediaRecorder.start();
-                        audioChunks = [];
-                        mediaRecorder.addEventListener("dataavailable", event => {
-                            audioChunks.push(event.data);
-                        });
-                        startRecording.disabled = true;
-                        stopRecording.disabled = false;
-                    });
-            });
+        function openWazeNavigation() {
+            if (wazeUrl) {
+                if (/Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent)) {
+                    window.location.href = wazeUrl.replace('https://www.waze.com', 'waze:');
+                } else {
+                    window.open(wazeUrl, '_blank');
+                }
+            }
+        }
 
-            stopRecording.addEventListener('click', function() {
-                mediaRecorder.stop();
-                startRecording.disabled = false;
-                stopRecording.disabled = true;
-                mediaRecorder.addEventListener("stop", () => {
-                    const audioBlob = new Blob(audioChunks);
-                    const formData = new FormData();
-                    formData.append("audio", audioBlob);
-                    fetch('/speech-to-text', {
-                        method: 'POST',
-                        body: formData
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        userInput.value = data.transcript;
-                    });
-                });
-            });
-        });
+        initMap();
     </script>
 </body>
 </html>
