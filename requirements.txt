@@ -1,7 +1,10 @@
 Flask
+Flask-SQLAlchemy
 google-generativeai
 googlemaps
 python-dotenv
+numpy
+requests
 urllib3
 google-cloud-speech 
 google-cloud-texttospeech
